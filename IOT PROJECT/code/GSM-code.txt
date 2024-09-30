@@ -1,0 +1,75 @@
+#include <SoftwareSerial.h>
+
+#define RX_PIN 7  // Define RX pin for SIM800L
+#define TX_PIN 8  // Define TX pin for SIM800L
+
+SoftwareSerial sim800(RX_PIN, TX_PIN); // RX, TX
+
+void setup() {
+  Serial.begin(9600);
+  sim800.begin(9600);
+  
+  Serial.println("Initializing SIM800L...");
+  sim800.println("AT"); // Test if SIM800L is connected
+  delay(1000);
+  sim800.println("AT+CSQ"); // Check signal quality
+  delay(1000);
+  sim800.println("AT+COPS?"); // Check network operator
+  delay(1000);
+}
+
+void loop() {
+  if (sim800.available()) {
+    String response = sim800.readString();
+    Serial.println("Response from SIM800L: " + response);
+
+    // Check for the GSM frequency in the response
+    if (response.indexOf("+COPS:") > -1) {
+      String networkInfo = parseGSMResponse(response);
+      Serial.println("GSM Frequency Detected: " + networkInfo);
+
+      // Send the frequency data via SMS
+      sendSMS(networkInfo);
+    }
+  }
+  delay(10000); // Delay for 10 seconds before the next check
+}
+
+// Function to parse GSM frequency information from the SIM800L response
+String parseGSMResponse(String response) {
+  // Example response: +COPS: 0,0,"NETWORK",0
+  // The 0 at the end indicates GSM frequency band (e.g., 900 MHz, 1800 MHz)
+  
+  int freqIndex = response.lastIndexOf(",") + 1;
+  String frequency = response.substring(freqIndex);
+  
+  if (frequency == "0") {
+    return "900 MHz";
+  } else if (frequency == "1") {
+    return "1800 MHz";
+  } else {
+    return "Unknown Frequency";
+  }
+}
+
+// Function to send GSM frequency data via SMS
+void sendSMS(String frequency) {
+  sim800.println("AT+CMGF=1");  // Set SMS to text mode
+  delay(1000);
+  sim800.println("AT+CMGS=\"+1234567890\"");  // Replace with your phone number
+  delay(1000);
+  sim800.print("GSM Frequency Detected: " + frequency);  // The message content
+  delay(1000);
+  sim800.write(26);  // ASCII code for CTRL+Z to send SMS
+  delay(1000);
+  Serial.println("SMS sent successfully.");
+}
+****************************
+#Steps to Run on Arduino Uno/Nano:
+#Install Arduino IDE: If you haven't installed it yet, download and install the Arduino IDE.
+#Connect SIM800L to Arduino:
+#SIM800L TX to Arduino RX (pin 7 in the example).
+#SIM800L RX to Arduino TX (pin 8 in the example).
+#Connect the GND and VCC to a 5V power source (be careful about voltage levels for your GSM module).
+#Upload the Code: Upload the above code to your Arduino using the Arduino IDE.
+#Power the GSM Module: Make sure to properly power the SIM800L, as it requires more current than what the Arduino can typically provide from its 5V pin.
